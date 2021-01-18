@@ -1,12 +1,12 @@
-#include <Arduino.h>
 #include <EEPROM.h>
 
 // ------------------- DEFINES ----------------------
-#define inWire1 A0
-#define inWire2 A1
-#define outWire 10
-#define confgBP 4
-#define led     5
+#define inWire1 A2  // 4
+#define inWire2 A3  // 3
+#define confgBP 2   // 2
+#define outWire 1   // 1
+#define led     0   // 0
+
 
 #define seuil_min_V 1.5 // The voltage under which no button is pressed
 
@@ -65,8 +65,6 @@ void setup() {
   pinMode(confgBP,INPUT);
   pinMode(led,    OUTPUT);
 
-  Serial.begin(9600);
-
   int i;
   int magicWord;
   float retreivedVoltage;
@@ -83,7 +81,6 @@ void setup() {
     autoCal();
   }
   else {
-    Serial.println("magic word retreived, skipping autocal");
     // Voltages
     for (i=0;i<8;i++){
       EEPROM.get(2+i*4,retreivedVoltage);
@@ -132,7 +129,6 @@ void loop() {
 
 // ------------------ FUNCTIONS --------------------
 void sendPulse(float level_V){
-  Serial.println("Sending " + String(level_V) + "Volts");
   // The output is set to the given value (8 bit resolution)
   analogWrite(outWire,((level_V/(float)5)*(float)1024)/4);
   // While the button is maintained, the output stays high
@@ -158,8 +154,6 @@ void autoCal(){
   float wire1Read;
   float wire2Read;
 
-  Serial.println("---1- Initialisation des boutons du volant -1--- ");
-
   for (i=0;i<8;i++){
 
     while (cmdFound == false) {
@@ -180,13 +174,10 @@ void autoCal(){
         blink(8);
       }
     }
-    Serial.println("Button ID " +String(i)+ " | Done: " +String(triggers_V[i])+ "V | Wire n " + String(trig_Wires[i]));
     blink(1);
     cmdFound = false;
     delay(1500);
   }
-
-  Serial.println("---2- Init volant OK, initialisation des fonctions -2--- ");  
 
   cmdFound = false;
   float voltage = 2.5;
@@ -213,10 +204,8 @@ void autoCal(){
         break;
       }
     blink(1);
-    Serial.println("[autoCal] Waiting for command...");
     }
 
-    Serial.println("Action ID ["+String(i)+"] Voltage: "+String(voltage)+"V");
     actions_V[i] = voltage;
     cmdFound = false;
   }
@@ -248,7 +237,6 @@ int getRmtCmd(){
       } 
     }
   }
-  Serial.println("[getRmtCmd]: Action ID: " + String(i));
   return i;
 }
 
@@ -262,7 +250,6 @@ void writeConfig(void){
   EEPROM.write(34,toByte(trig_Wires));
   // Finally the magic word to validate the process
   EEPROM.put(0,101);
-  Serial.println("Config Written!");  
 }
 
 unsigned char toByte(bool b[8])
