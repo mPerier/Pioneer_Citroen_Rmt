@@ -1,12 +1,11 @@
-#include <Arduino.h>
 #include <EEPROM.h>
 
 // ------------------- DEFINES ----------------------
 #define inWire1 A2  // 4
 #define inWire2 A3  // 3
 #define confgBP 2   // 2
-#define outWire 3   // 1
-#define led     5   // 0
+#define outWire 1   // 1
+#define led     0   // 0
 
 #define trig_inRes_Ohm 470 // The trigger resistance and voltage
 #define in_supplyVoltage 5
@@ -14,7 +13,8 @@
 #define out_inRes_Ohm 1000 // The output resistance and voltage
 #define out_supplyVoltage 12 
 
-#define tolerance_V 0.025
+#define tolerance_V 0.15
+#define autocal_step_V 0.005
 
 #define MWORD_BYTE 0
 #define VSEUIL_BYTE 2
@@ -62,7 +62,7 @@ void setup() {
   pinMode(confgBP,INPUT);
   pinMode(led,    OUTPUT);
 
-  Serial.begin(9600);
+  //Serial.begin(9600);
 
   int i;
   int magicWord;
@@ -130,6 +130,8 @@ void loop() {
 
 // ------------------ FUNCTIONS --------------------
 void sendPulse(float level_V){
+  //Serial.print("######## PULSE: ");
+  //Serial.println(level_V);
   // The output is set to the given value (8 bit resolution)
   analogWrite(outWire,VoltsToByte(level_V));
   // While the button is maintained, the output stays high
@@ -137,6 +139,7 @@ void sendPulse(float level_V){
     delay(50);
   }
   digitalWrite(outWire,0);
+  //Serial.println("#### RELEASED ####");
 }
 
 void blink(int nbBlink, int blinkDuration_ms){
@@ -150,15 +153,15 @@ void blink(int nbBlink, int blinkDuration_ms){
 }
 
 void autoCal(){
-  Serial.println("-------- Starting autocalibration -------");
+  //Serial.println("-------- Starting autocalibration -------");
   int i;
   bool cmdFound = false;
   float wire1Read;
   float wire2Read;
 
   seuil_max_V = getNormalVoltage();
-  Serial.print("Normal voltage: ");
-  Serial.println(seuil_max_V);
+  //Serial.print("Normal voltage: ");
+  //Serial.println(seuil_max_V);
 
   // The Led will return to full brightness after blink
   infoLed_V = 5;
@@ -184,10 +187,10 @@ void autoCal(){
       }
     }
     blink(1,1);
-    Serial.print("Button ok: Wire ");
-    Serial.print(trig_Wires[i]);
-    Serial.print(" | Voltage: ");
-    Serial.println(triggers_V[i]);
+    //Serial.print("Button ok: Wire ");
+    //Serial.print(trig_Wires[i]);
+    //Serial.print(" | Voltage: ");
+    //Serial.println(triggers_V[i]);
     cmdFound = false;
     delay(500);
   }
@@ -198,24 +201,36 @@ void autoCal(){
     while (!cmdFound) {
       switch (getRmtCmd()) {
         case VOLM:
-          voltage-=tolerance_V;
+          if (voltage >= autocal_step_V) {
+            voltage-=autocal_step_V;
+          }
         break;
         case VOLP:
-          voltage+=tolerance_V;
-        break;
-        case NEXT:
-          voltage-=4*tolerance_V;
+          if (voltage <= 5-autocal_step_V){
+            voltage+=autocal_step_V;
+          }
         break;
         case PREV:
-          voltage+=4*tolerance_V;
+          if (voltage >= 4*autocal_step_V) {
+            voltage-=4*autocal_step_V;
+          }
+        break;
+        case NEXT:
+          if (voltage <= 5-(4*autocal_step_V)){
+            voltage+=4*autocal_step_V;
+          }
         break;
         case FNC1:
           sendPulse(voltage);
         break;
         case FNC2:
+          //Serial.print("Memorised function: ");
+          //Serial.println(voltage);
           cmdFound = true;
         break;
       }
+    //Serial.print("Writing voltage: ");
+    //Serial.println(voltage);
     analogWrite(led,VoltsToByte(voltage));
     }
     actions_V[i] = voltage;
@@ -223,6 +238,7 @@ void autoCal(){
   }
 
   writeConfig();
+  //Serial.println("------- END autocal ---------");
 }
 
 int getRmtCmd(){
